@@ -28,7 +28,7 @@ jobs:
         comment = os.environ['PR_COMMENT']
 
         command = '/link-run' if '/link-run' in comment else '/promote-run'
-        match = re.search(f'{command} (\S+) (\S+)', comment)
+        match = re.search(f'{command} (\\S+) (\\S+)', comment)
         if match:
             run_id, tag = match.groups()
 

@@ -43,7 +43,6 @@ def create_comparison_report(entity: str, project: str, tag:str,
     ]
     report.blocks = blocks
     report.save()
-    print(f'The comparison report can found at: {report.url}.')
 
     if os.getenv('CI'):
         with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
@@ -66,7 +65,6 @@ def promote_run_by_id(entity: str, project: str, collection:str, run_id: str, ta
     latest_model = versions[0]
     query = urlencode({'selectionPath': registry_path, 'version': latest_model.version})
     registry_url = f'https://wandb.ai/{latest_model.entity}/registry/model?{query}'
-    print(f'The model was promoted with the tag `{tag}` to this registry: {registry_url}')
 
     if os.getenv('CI'):
         with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
