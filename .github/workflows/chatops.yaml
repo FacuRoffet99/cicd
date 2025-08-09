@@ -1,91 +1,103 @@
 name: W&B ChatOps
 
 on: 
-  issue_comment
+  issue_comment:
+    types: [created, edited]
 
 permissions:
   contents: read
   issues: write
   pull-requests: write
-  statuses: read
   
 jobs: 
-  link-run:
-    if: (github.event.issue.pull_request != null) && contains(github.event.comment.body, '/link-run')
+  chatops:
+    if: (github.event.issue.pull_request != null) && (contains(github.event.comment.body, '/link-run') || contains(github.event.comment.body, '/promote-run'))
     runs-on: ubuntu-latest
     steps:      
-    - uses: actions/checkout@v4  
-    - run: pip install ghapi wandb wandb-workspaces
+    - name: Checkout code
+      uses: actions/checkout@v4  
 
-    - id: get-run-id
+    - name: Set up environment
+      run: pip install ghapi wandb wandb-workspaces
+
+    - name: Parse comment command
+      id: parser
       shell: python
       run: |
         import os, re
-        comment_text = os.environ['PR_COMMENT']
-        id_match = re.search('/link-run[\s+](\S+)', comment_text)
-        tag_match = re.search('/link-run\s+\S+\s+(\S+)', comment_text)
-        if not id_match or not tag_match:
-          raise ValueError("Invalid comment. Please ensure the comment contains '/link-run <run_id> <run_tag>'.")
-        run_id, run_tag = id_match.group(1), tag_match.group(1)
+        comment = os.environ['PR_COMMENT']
+
+        command = 'link-run' if '/link-run' in comment else 'promote-run'
+        match = re.search(f'/{command} (\S+) (\S+)', comment)
+        if match:
+            run_id, tag = match.groups()
+
+        if not all([command, run_id, tag]):
+            raise ValueError("Invalid command format.")
+
         with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-          print(f'RUN_ID={run_id}', file=f)
-          print(f'RUN_TAG={run_tag}', file=f)
+            print(f'COMMAND={command}', file=f)
+            print(f'RUN_ID={run_id}', file=f)
+            print(f'TAG={tag}', file=f)
       env:
-        PR_COMMENT: ${{ github.event.comment.body }} 
+        PR_COMMENT: ${{ github.event.comment.body }}
 
-    - id: create-report
-      run: python report.py
-      env: 
+    - name: Link run and create report
+      if: steps.parser.outputs.COMMAND == 'link-run'
+      id: create-report
+      shell: python
+      run: |
+        import os
+        from utils.wandb import get_run_by_unique_tag, get_run_by_id, create_comparison_report
+        entity, project = 'FacuRoffet99', 'pytorch-intro'
+        run_id, tag = os.environ['RUN_ID'], os.environ['TAG']
+        base_run = get_run_by_unique_tag(entity, project, tag)
+        new_run = get_run_by_id(entity, project, run_id)
+        _ = create_comparison_report(entity, project, base_run, new_run)
+      env:
         WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
-        RUN_ID: ${{ steps.get-run-id.outputs.RUN_ID }}
-        REGISTRY_TAG: ${{ steps.get-run-id.outputs.REGISTRY_TAG }} 
+        RUN_ID: ${{ steps.parser.outputs.RUN_ID }}
+        TAG: ${{ steps.parser.outputs.TAG }}
 
-    - id: create-comment-and-assign-label
+    - name: Promote run to registry
+      if: steps.parser.outputs.COMMAND == 'promote-run'
+      id: promote-run
+      shell: python
+      run: |
+        import os
+        from utils.wandb import promote_run_by_id
+        entity, project, collection = 'FacuRoffet99', 'pytorch-intro', 'MNIST Classifier'
+        run_id, tag = os.environ['RUN_ID'], os.environ['TAG']
+        _ = promote_run_by_id(entity, project, collection, run_id, tag)
+      env:
+        WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+        RUN_ID: ${{ steps.parser.outputs.RUN_ID }}
+        TAG: ${{ steps.parser.outputs.TAG }}
+
+    - name: Create comment and add label
       shell: python
       run: |
         import os
         from ghapi.core import GhApi
+      
         owner, repo = os.environ['REPO'].split('/')
-        api = GhApi(owner=owner, repo=repo)
-        api.issues.create_comment(
-          os.environ['ISSUE_NUMBER'], 
-          f"The comparison report can found at: {os.environ['REPORT_URL']}."
-        )
-        api.issues.add_labels(
-          os.environ['ISSUE_NUMBER'],
-          labels=["experiment-linked"])
+        api = GhApi(owner=owner, repo=repo, token=os.environ['GITHUB_TOKEN'])
+        command, tag = os.environ['COMMAND'], os.environ['TAG']
+
+        if command == 'link-run':
+            message = f"Comparison report generated: {os.environ['REPORT_URL']}."
+            labels = ["experiment-linked"]
+        elif command == 'promote-run':
+            message = f"Model promoted to the registry with tag `{tag}`: {os.environ['REGISTRY_URL']}"
+            labels = ["model-promoted"]
+
+        api.issues.create_comment(os.environ['ISSUE_NUMBER'], message)
+        api.issues.add_labels(os.environ['ISSUE_NUMBER'], labels)
       env:
-        ISSUE_NUMBER: ${{ github.event.issue.number }} 
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         REPO: ${{ github.repository }}
+        ISSUE_NUMBER: ${{ github.event.issue.number }}
+        COMMAND: ${{ steps.parser.outputs.COMMAND }}
+        TAG: ${{ steps.parser.outputs.TAG }}
         REPORT_URL: ${{ steps.create-report.outputs.REPORT_URL }}
-
-  promote-run:
-    if: (github.event.issue.pull_request != null) && contains(github.event.comment.body, '/promote-run')
-    runs-on: ubuntu-latest
-    steps:      
-    - uses: actions/checkout@v4  
-    - run: pip install ghapi wandb wandb-workspaces
-
-    - id: get-run-id
-      shell: python
-      run: |
-        import os, re
-        comment_text = os.environ['PR_COMMENT']
-        id_match = re.search('/promote-run[\s+](\S+)', comment_text)
-        tag_match = re.search('/promote-run\s+\S+\s+(\S+)', comment_text)
-        if not id_match or not tag_match:
-          raise ValueError("Invalid comment. Please ensure the comment contains '/promote-run <run_id> <registry_tag>'.")
-        run_id, registry_tag = id_match.group(1), tag_match.group(1)
-        with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-          print(f'RUN_ID={run_id}', file=f)
-          print(f'REGISTRY_TAG={registry_tag}', file=f)
-      env:
-        PR_COMMENT: ${{ github.event.comment.body }} 
-
-    - id: move-model-to-registry
-      run: python promote_.py
-      env: 
-        WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
-        RUN_ID: ${{ steps.get-run-id.outputs.RUN_ID }}      
-        REGISTRY_TAG: ${{ steps.get-run-id.outputs.REGISTRY_TAG }}   
+        REGISTRY_URL: ${{ steps.promote-run.outputs.REGISTRY_URL }}

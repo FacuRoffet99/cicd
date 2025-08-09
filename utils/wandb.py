@@ -34,7 +34,7 @@ def create_comparison_report(entity: str, project: str, tag:str,
     report = wr.Report(entity=entity, project=project,
                        title='Run comparison',
                        width='fluid',
-                       description=f"New run: ({new_run.name})\n'{tag.capitalize()}' run: ({base_run.name})") 
+                       description=f"New run: {new_run.name}\n'{tag.capitalize()}' run: {base_run.name}") 
     blocks = [
         wr.PanelGrid(
             runsets=[wr.Runset(entity, project, "Run comparison", filters=f"name in ['{new_run.id}', '{base_run.id}']")],
@@ -58,18 +58,19 @@ def promote_run_by_id(entity: str, project: str, collection:str, run_id: str, ta
     run = api.run(f'{entity}/{project}/{run_id}')
     registry_path = f'{entity}/model-registry/{collection}'
 
-    artifact = [a for a in run.logged_artifacts() if a.type == 'model']
-    if artifact:
-        assert len(artifact) == 1, 'More then 1 artifact of type model!'
-        artifact[0].link(registry_path, aliases=[tag])   
+    artifacts = [a for a in run.logged_artifacts() if a.type == 'model']
+    assert len(artifacts) >= 1, 'No artifacts of type model found.'
+    artifacts[-1].link(registry_path, aliases=[tag])   
 
-    versions = api.artifact_versions('model', registry_path)
+    versions = api.artifacts('model', registry_path)
     latest_model = versions[0]
     query = urlencode({'selectionPath': registry_path, 'version': latest_model.version})
     registry_url = f'https://wandb.ai/{latest_model.entity}/registry/model?{query}'
+    print(f'The model was promoted with the tag `{tag}` to this registry: {registry_url}')
 
     if os.getenv('CI'):
         with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
             print(f'REGISTRY_URL={registry_url}', file=f)
 
-    print(f'The model was promoted with the tag `{tag}` to this registry: {registry_url}')
+    return registry_url
+    
