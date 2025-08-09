@@ -10,7 +10,7 @@ jobs:
     steps:        
      - run: pip install ghapi
      - shell: python
-      run: |
+       run: |
         import os
         from ghapi.core import GhApi
         owner, repo = os.environ['REPO'].split('/')
