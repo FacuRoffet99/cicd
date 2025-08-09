@@ -1,0 +1,88 @@
+name: W&B ChatOps
+
+on: 
+  issue_comment
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  statuses: read
+  
+jobs: 
+  link-run:
+    if: (github.event.issue.pull_request != null) && contains(github.event.comment.body, '/link-run')
+    runs-on: ubuntu-latest
+    steps:      
+    - uses: actions/checkout@v4  
+    - run: pip install ghapi wandb wandb-workspaces
+
+    - id: get-run-id
+      run: |
+        import os, re
+        comment_text = os.environ['PR_COMMENT']
+        id_match = re.search('/link-run[\s+](\S+)', comment_text)
+        tag_match = re.search('/link-run\s+\S+\s+(\S+)', comment_text)
+        if not id_match or not tag_match:
+          raise ValueError("Invalid comment. Please ensure the comment contains '/link-run <run_id> <run_tag>'.")
+        run_id, run_tag = id_match.group(1), tag_match.group(1)
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+          print(f'RUN_ID={run_id}', file=f)
+          print(f'RUN_TAG={run_tag}', file=f)
+      env:
+        PR_COMMENT: ${{ github.event.comment.body }} 
+
+    - id: create-report
+      run: python report.py
+      env: 
+        WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+        RUN_ID: ${{ steps.get-run-id.outputs.RUN_ID }}
+        REGISTRY_TAG: ${{ steps.get-run-id.outputs.REGISTRY_TAG }} 
+
+    - id: create-comment-and-assign-label
+      run: |
+        import os
+        from ghapi.core import GhApi
+        owner, repo = os.environ['REPO'].split('/')
+        api = GhApi(owner=owner, repo=repo)
+        api.issues.create_comment(
+          os.environ['ISSUE_NUMBER'], 
+          f"The comparison report can found at: {os.environ['REPORT_URL']}."
+        )
+        api.issues.add_labels(
+          os.environ['ISSUE_NUMBER'],
+          labels=["experiment-linked"])
+      env:
+        ISSUE_NUMBER: ${{ github.event.issue.number }} 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        REPO: ${{ github.repository }}
+        REPORT_URL: ${{ steps.create-report.outputs.REPORT_URL }}
+
+  promote-run:
+    if: (github.event.issue.pull_request != null) && contains(github.event.comment.body, '/promote-run')
+    runs-on: ubuntu-latest
+    steps:      
+    - uses: actions/checkout@v4  
+    - run: pip install ghapi wandb wandb-workspaces
+
+    - id: get-run-id
+      run: |
+        import os, re
+        comment_text = os.environ['PR_COMMENT']
+        id_match = re.search('/promote-run[\s+](\S+)', comment_text)
+        tag_match = re.search('/promote-run\s+\S+\s+(\S+)', comment_text)
+        if not id_match or not tag_match:
+          raise ValueError("Invalid comment. Please ensure the comment contains '/promote-run <run_id> <registry_tag>'.")
+        run_id, registry_tag = id_match.group(1), tag_match.group(1)
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+          print(f'RUN_ID={run_id}', file=f)
+          print(f'REGISTRY_TAG={registry_tag}', file=f)
+      env:
+        PR_COMMENT: ${{ github.event.comment.body }} 
+
+    - id: move-model-to-registry
+      run: python promote_.py
+      env: 
+        WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+        RUN_ID: ${{ steps.get-run-id.outputs.RUN_ID }}      
+        REGISTRY_TAG: ${{ steps.get-run-id.outputs.REGISTRY_TAG }}   
