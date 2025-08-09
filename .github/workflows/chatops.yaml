@@ -18,6 +18,7 @@ jobs:
     - run: pip install ghapi wandb wandb-workspaces
 
     - id: get-run-id
+      shell: python
       run: |
         import os, re
         comment_text = os.environ['PR_COMMENT']
@@ -40,6 +41,7 @@ jobs:
         REGISTRY_TAG: ${{ steps.get-run-id.outputs.REGISTRY_TAG }} 
 
     - id: create-comment-and-assign-label
+      shell: python
       run: |
         import os
         from ghapi.core import GhApi
@@ -66,6 +68,7 @@ jobs:
     - run: pip install ghapi wandb wandb-workspaces
 
     - id: get-run-id
+      shell: python
       run: |
         import os, re
         comment_text = os.environ['PR_COMMENT']
