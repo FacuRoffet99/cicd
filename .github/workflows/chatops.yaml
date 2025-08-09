@@ -48,7 +48,7 @@ jobs:
       shell: python
       run: |
         import os
-        from wandb import get_run_by_unique_tag, get_run_by_id, create_comparison_report
+        from utils import get_run_by_unique_tag, get_run_by_id, create_comparison_report
         entity, project = 'FacuRoffet99', 'pytorch-intro'
         run_id, tag = os.environ['RUN_ID'], os.environ['TAG']
         base_run = get_run_by_unique_tag(entity, project, tag)
@@ -66,7 +66,7 @@ jobs:
       shell: python
       run: |
         import os
-        from wandb import promote_run_by_id
+        from utils import promote_run_by_id
         entity, project, collection = 'FacuRoffet99', 'pytorch-intro', 'MNIST Classifier'
         run_id, tag = os.environ['RUN_ID'], os.environ['TAG']
         _ = promote_run_by_id(entity, project, collection, run_id, tag)
