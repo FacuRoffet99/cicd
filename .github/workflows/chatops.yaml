@@ -27,8 +27,8 @@ jobs:
         import os, re
         comment = os.environ['PR_COMMENT']
 
-        command = 'link-run' if '/link-run' in comment else 'promote-run'
-        match = re.search(f'/{command} (\S+) (\S+)', comment)
+        command = '/link-run' if '/link-run' in comment else '/promote-run'
+        match = re.search(f'{command} (\S+) (\S+)', comment)
         if match:
             run_id, tag = match.groups()
 
@@ -84,10 +84,10 @@ jobs:
         api = GhApi(owner=owner, repo=repo, token=os.environ['GITHUB_TOKEN'])
         command, tag = os.environ['COMMAND'], os.environ['TAG']
 
-        if command == 'link-run':
+        if command == '/link-run':
             message = f"Comparison report generated: {os.environ['REPORT_URL']}."
             labels = ["experiment-linked"]
-        elif command == 'promote-run':
+        elif command == '/promote-run':
             message = f"Model promoted to the registry with tag `{tag}`: {os.environ['REGISTRY_URL']}"
             labels = ["model-promoted"]
 
