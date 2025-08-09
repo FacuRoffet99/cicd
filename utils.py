@@ -49,7 +49,7 @@ def create_comparison_report(entity: str, project: str, tag:str,
             print(f'REPORT_URL={report.url}', file=f)
     return report.url
 
-def promote_run_by_id(entity: str, project: str, collection:str, run_id: str, tag: str) -> None:
+def promote_run_by_id(entity: str, project: str, collection: str, run_id: str, tag: str) -> None:
     """
     Promotes a run to the Model Registry from a project using its ID and gives it a tag.
     """

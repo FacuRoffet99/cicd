@@ -53,7 +53,7 @@ jobs:
         run_id, tag = os.environ['RUN_ID'], os.environ['TAG']
         base_run = get_run_by_unique_tag(entity, project, tag)
         new_run = get_run_by_id(entity, project, run_id)
-        _ = create_comparison_report(entity, project, base_run, new_run)
+        _ = create_comparison_report(entity, project, tag, base_run, new_run)
       env:
         WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
         RUN_ID: ${{ steps.parser.outputs.RUN_ID }}
