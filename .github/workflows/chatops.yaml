@@ -58,7 +58,7 @@ jobs:
         WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
         RUN_ID: ${{ steps.parser.outputs.RUN_ID }}
         TAG: ${{ steps.parser.outputs.TAG }}
-        PYTHONPATH: cicd
+        PYTHONPATH: .
 
     - name: Promote run to registry
       if: steps.parser.outputs.COMMAND == '/promote-run'
@@ -74,7 +74,7 @@ jobs:
         WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
         RUN_ID: ${{ steps.parser.outputs.RUN_ID }}
         TAG: ${{ steps.parser.outputs.TAG }}
-        PYTHONPATH: cicd
+        PYTHONPATH: .
 
     - name: Create comment and add label
       shell: python
