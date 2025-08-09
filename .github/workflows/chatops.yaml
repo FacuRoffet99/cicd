@@ -13,7 +13,7 @@ jobs:
   chatops:
     if: (github.event.issue.pull_request != null) && (contains(github.event.comment.body, '/link-run') || contains(github.event.comment.body, '/promote-run'))
     runs-on: ubuntu-latest
-    steps:      
+    steps:  
     - name: Checkout code
       uses: actions/checkout@v4  
 
@@ -48,7 +48,7 @@ jobs:
       shell: python
       run: |
         import os
-        from utils.wandb import get_run_by_unique_tag, get_run_by_id, create_comparison_report
+        from wandb import get_run_by_unique_tag, get_run_by_id, create_comparison_report
         entity, project = 'FacuRoffet99', 'pytorch-intro'
         run_id, tag = os.environ['RUN_ID'], os.environ['TAG']
         base_run = get_run_by_unique_tag(entity, project, tag)
@@ -58,6 +58,7 @@ jobs:
         WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
         RUN_ID: ${{ steps.parser.outputs.RUN_ID }}
         TAG: ${{ steps.parser.outputs.TAG }}
+        PYTHONPATH: cicd
 
     - name: Promote run to registry
       if: steps.parser.outputs.COMMAND == '/promote-run'
@@ -65,7 +66,7 @@ jobs:
       shell: python
       run: |
         import os
-        from utils.wandb import promote_run_by_id
+        from wandb import promote_run_by_id
         entity, project, collection = 'FacuRoffet99', 'pytorch-intro', 'MNIST Classifier'
         run_id, tag = os.environ['RUN_ID'], os.environ['TAG']
         _ = promote_run_by_id(entity, project, collection, run_id, tag)
@@ -73,6 +74,7 @@ jobs:
         WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
         RUN_ID: ${{ steps.parser.outputs.RUN_ID }}
         TAG: ${{ steps.parser.outputs.TAG }}
+        PYTHONPATH: cicd
 
     - name: Create comment and add label
       shell: python

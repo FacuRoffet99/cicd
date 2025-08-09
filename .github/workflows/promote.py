@@ -1,5 +1,5 @@
 import os
-from utils.wandb import promote_run_by_id
+from wandb import promote_run_by_id
 
 assert os.environ['WANDB_API_KEY'], 'You must set the WANDB_API_KEY environment variable'
 
