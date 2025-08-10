@@ -30,15 +30,15 @@ jobs:
         command = '/link-run' if '/link-run' in comment else '/promote-run'
         match = re.search(f'{command} (\\S+) (\\S+)', comment)
         if match:
-            run_id, tag = match.groups()
+            run_id, text = match.groups()
 
-        if not all([command, run_id, tag]):
+        if not all([command, run_id, text]):
             raise ValueError("Invalid command format.")
 
         with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
             print(f'COMMAND={command}', file=f)
             print(f'RUN_ID={run_id}', file=f)
-            print(f'TAG={tag}', file=f)
+            print(f'TEXT={text}', file=f)
       env:
         PR_COMMENT: ${{ github.event.comment.body }}
 
@@ -50,14 +50,14 @@ jobs:
         import os
         from utils import get_run_by_unique_tag, get_run_by_id, create_comparison_report
         entity, project = 'FacuRoffet99', 'pytorch-intro'
-        run_id, tag = os.environ['RUN_ID'], os.environ['TAG']
+        run_id, tag = os.environ['RUN_ID'], os.environ['TEXT']
         base_run = get_run_by_unique_tag(entity, project, tag)
         new_run = get_run_by_id(entity, project, run_id)
         _ = create_comparison_report(entity, project, tag, base_run, new_run)
       env:
         WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
         RUN_ID: ${{ steps.parser.outputs.RUN_ID }}
-        TAG: ${{ steps.parser.outputs.TAG }}
+        TEXT: ${{ steps.parser.outputs.TEXT }}
         PYTHONPATH: .
 
     - name: Promote run to registry
@@ -68,12 +68,12 @@ jobs:
         import os
         from utils import promote_run_by_id
         entity, project, collection = 'FacuRoffet99', 'pytorch-intro', 'MNIST Classifier'
-        run_id, tag = os.environ['RUN_ID'], os.environ['TAG']
-        _ = promote_run_by_id(entity, project, collection, run_id, tag)
+        run_id, alias = os.environ['RUN_ID'], os.environ['TEXT']
+        _ = promote_run_by_id(entity, project, collection, run_id, alias)
       env:
         WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
         RUN_ID: ${{ steps.parser.outputs.RUN_ID }}
-        TAG: ${{ steps.parser.outputs.TAG }}
+        TEXT: ${{ steps.parser.outputs.TEXT }}
         PYTHONPATH: .
 
     - name: Create comment and add label
@@ -84,13 +84,13 @@ jobs:
       
         owner, repo = os.environ['REPO'].split('/')
         api = GhApi(owner=owner, repo=repo, token=os.environ['GITHUB_TOKEN'])
-        command, tag = os.environ['COMMAND'], os.environ['TAG']
+        command, text = os.environ['COMMAND'], os.environ['TEXT']
 
         if command == '/link-run':
             message = f"Comparison report generated: {os.environ['REPORT_URL']}."
             labels = ["experiment-linked"]
         elif command == '/promote-run':
-            message = f"Model promoted to the registry with tag `{tag}`: {os.environ['REGISTRY_URL']}"
+            message = f"Model promoted to the registry with tag `{text}`: {os.environ['REGISTRY_URL']}"
             labels = ["model-promoted"]
 
         api.issues.create_comment(os.environ['ISSUE_NUMBER'], message)
@@ -100,6 +100,6 @@ jobs:
         REPO: ${{ github.repository }}
         ISSUE_NUMBER: ${{ github.event.issue.number }}
         COMMAND: ${{ steps.parser.outputs.COMMAND }}
-        TAG: ${{ steps.parser.outputs.TAG }}
+        TEXT: ${{ steps.parser.outputs.TEXT }}
         REPORT_URL: ${{ steps.create-report.outputs.REPORT_URL }}
         REGISTRY_URL: ${{ steps.promote-run.outputs.REGISTRY_URL }}
