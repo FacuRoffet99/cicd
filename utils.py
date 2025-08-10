@@ -49,9 +49,9 @@ def create_comparison_report(entity: str, project: str, tag:str,
             print(f'REPORT_URL={report.url}', file=f)
     return report.url
 
-def promote_run_by_id(entity: str, project: str, collection: str, run_id: str, tag: str) -> None:
+def promote_run_by_id(entity: str, project: str, collection: str, run_id: str, alias: str) -> None:
     """
-    Promotes a run to the Model Registry from a project using its ID and gives it a tag.
+    Promotes a run to the Model Registry from a project using its ID and gives it an alias.
     """
     api = wandb.Api()
     run = api.run(f'{entity}/{project}/{run_id}')
@@ -59,7 +59,7 @@ def promote_run_by_id(entity: str, project: str, collection: str, run_id: str, t
 
     artifacts = [a for a in run.logged_artifacts() if a.type == 'model']
     assert len(artifacts) >= 1, 'No artifacts of type model found.'
-    artifacts[-1].link(registry_path, aliases=[tag])   
+    artifacts[-1].link(registry_path, aliases=[alias])   
 
     versions = api.artifacts('model', registry_path)
     latest_model = versions[0]
